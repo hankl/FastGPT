@@ -6,7 +6,7 @@ import { DispatchNodeResponseKeyEnum } from '@fastgpt/global/core/workflow/runti
 import { NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
 import { MCPClient } from '../../../app/mcp';
 import { getErrText } from '@fastgpt/global/common/error/utils';
-import { addLog } from '../../../common/system/log';
+import { addLog } from '../../../../common/system/log';
 
 type RunToolProps = ModuleDispatchProps<{
   toolData: {

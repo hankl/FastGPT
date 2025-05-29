@@ -8,9 +8,11 @@ import { retryFn } from '@fastgpt/global/common/system/utils';
 export class MCPClient {
   private client: Client;
   private url: string;
+  private accessToken?: string;
 
-  constructor(config: { url: string }) {
+  constructor(config: { url: string; accessToken?: string }) {
     this.url = config.url;
+    this.accessToken = config.accessToken;
     this.client = new Client({
       name: 'FastGPT-MCP-client',
       version: '1.0.0'
@@ -18,12 +20,41 @@ export class MCPClient {
   }
 
   private async getConnection(): Promise<Client> {
+    // Prepare request options with Authorization header if accessToken is provided
+    const requestInit: RequestInit = {};
+    if (this.accessToken) {
+      requestInit.headers = {
+        Authorization: `Bearer ${this.accessToken}`
+      };
+      addLog.debug('[MCP Client] Using accessToken for authentication');
+    }
+
     try {
-      const transport = new StreamableHTTPClientTransport(new URL(this.url));
+      const transport = new StreamableHTTPClientTransport(new URL(this.url), {
+        requestInit
+      });
       await this.client.connect(transport);
+      addLog.debug('[MCP Client] Connected using StreamableHTTPClientTransport');
       return this.client;
     } catch (error) {
-      await this.client.connect(new SSEClientTransport(new URL(this.url)));
+      addLog.debug('[MCP Client] StreamableHTTPClientTransport failed, trying SSEClientTransport');
+
+      // For SSE transport, we need to set headers in both eventSourceInit and requestInit
+      const sseOptions: any = {
+        requestInit
+      };
+
+      // Set Authorization header for the initial SSE connection
+      if (this.accessToken) {
+        sseOptions.eventSourceInit = {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`
+          }
+        };
+      }
+
+      await this.client.connect(new SSEClientTransport(new URL(this.url), sseOptions));
+      addLog.debug('[MCP Client] Connected using SSEClientTransport');
       return this.client;
     }
   }

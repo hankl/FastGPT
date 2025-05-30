@@ -9,10 +9,12 @@ export class MCPClient {
   private client: Client;
   private url: string;
   private accessToken?: string;
+  private tenantId?: string;
 
-  constructor(config: { url: string; accessToken?: string }) {
+  constructor(config: { url: string; accessToken?: string; tenantId?: string }) {
     this.url = config.url;
     this.accessToken = config.accessToken;
+    this.tenantId = config.tenantId;
     this.client = new Client({
       name: 'FastGPT-MCP-client',
       version: '1.0.0'
@@ -20,13 +22,22 @@ export class MCPClient {
   }
 
   private async getConnection(): Promise<Client> {
-    // Prepare request options with Authorization header if accessToken is provided
+    // Prepare request options with headers if accessToken or tenantId are provided
     const requestInit: RequestInit = {};
+    const headers: Record<string, string> = {};
+
     if (this.accessToken) {
-      requestInit.headers = {
-        Authorization: `Bearer ${this.accessToken}`
-      };
+      headers.Authorization = `Bearer ${this.accessToken}`;
       addLog.debug('[MCP Client] Using accessToken for authentication');
+    }
+
+    if (this.tenantId) {
+      headers['X-Coral-Tenant'] = this.tenantId;
+      addLog.debug('[MCP Client] Using tenantId for tenant identification');
+    }
+
+    if (Object.keys(headers).length > 0) {
+      requestInit.headers = headers;
     }
 
     try {
@@ -44,12 +55,10 @@ export class MCPClient {
         requestInit
       };
 
-      // Set Authorization header for the initial SSE connection
-      if (this.accessToken) {
+      // Set headers for the initial SSE connection
+      if (Object.keys(headers).length > 0) {
         sseOptions.eventSourceInit = {
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`
-          }
+          headers
         };
       }
 

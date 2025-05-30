@@ -29,8 +29,9 @@ export const dispatchRunTool = async (props: RunToolProps): Promise<RunToolRespo
   const { toolData, ...restParams } = params;
   const { name: toolName, url } = toolData;
 
-  // Extract accessToken from global variables if available
+  // Extract accessToken and tenantId from global variables if available
   const accessToken = variables?.accessToken;
+  const tenantId = variables?.tenantId;
 
   if (accessToken) {
     addLog.debug(`[MCP Tool] Using accessToken for tool ${toolName}`);
@@ -38,7 +39,13 @@ export const dispatchRunTool = async (props: RunToolProps): Promise<RunToolRespo
     addLog.debug(`[MCP Tool] No accessToken found in global variables for tool ${toolName}`);
   }
 
-  const mcpClient = new MCPClient({ url, accessToken });
+  if (tenantId) {
+    addLog.debug(`[MCP Tool] Using tenantId for tool ${toolName}`);
+  } else {
+    addLog.debug(`[MCP Tool] No tenantId found in global variables for tool ${toolName}`);
+  }
+
+  const mcpClient = new MCPClient({ url, accessToken, tenantId });
 
   try {
     const result = await mcpClient.toolCall(toolName, restParams);

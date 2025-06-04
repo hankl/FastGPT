@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ShortLink Test</title>
+</head>
+<body>
+    <h1>ShortLink Integration Test</h1>
+    
+    <h2>Test Links:</h2>
+    <ul>
+        <li><a href="/chat/share?shareId=test&linkId=demo" target="_blank">Demo Link (linkId=demo)</a></li>
+        <li><a href="/chat/share?shareId=test&linkId=test" target="_blank">Test Link (linkId=test)</a></li>
+        <li><a href="/chat/share?shareId=test&linkId=invalid" target="_blank">Invalid Link (linkId=invalid)</a></li>
+        <li><a href="/chat/share?shareId=test" target="_blank">No LinkId (normal behavior)</a></li>
+    </ul>
+    
+    <h2>API Test:</h2>
+    <button onclick="testAPI('demo')">Test Demo API</button>
+    <button onclick="testAPI('test')">Test Test API</button>
+    <button onclick="testAPI('invalid')">Test Invalid API</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI(linkId) {
+            try {
+                const response = await fetch(`/api/common/shortLink/${linkId}`);
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>API Result for linkId: ${linkId}</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>Error for linkId: ${linkId}</h3>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

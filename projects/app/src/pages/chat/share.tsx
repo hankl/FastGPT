@@ -45,11 +45,16 @@ const CustomPluginRunBox = dynamic(() => import('@/pageComponents/chat/CustomPlu
 // API function to fetch shortLink data
 const fetchShortLinkData = async (
   linkId: string
-): Promise<{ initData?: Record<string, any>; error?: string }> => {
+): Promise<{ data?: Record<string, any>; error?: string }> => {
   try {
     const response = await fetch(`/api/common/shortLink/${linkId}`);
-    const data = await response.json();
-    return data;
+    const result = await response.json();
+
+    if (result.code === 200 && result.data?.data) {
+      return { data: result.data.data };
+    } else {
+      return { error: result.message || 'Failed to fetch shortLink data' };
+    }
   } catch (error) {
     console.error('Error fetching shortLink data:', error);
     return { error: 'Failed to fetch shortLink data' };
@@ -90,8 +95,8 @@ const OutLink = (props: Props) => {
     [key: string]: string;
   };
 
-  // State to store initData from shortLink
-  const [shortLinkInitData, setShortLinkInitData] = useState<Record<string, any>>({});
+  // State to store merged variables (customVariables + shortLink data)
+  const [mergedVariables, setMergedVariables] = useState<Record<string, any>>(customVariables);
   const { isPc } = useSystem();
   const { outLinkAuthData, appId, chatId } = useChatStore();
 
@@ -112,25 +117,36 @@ const OutLink = (props: Props) => {
   const totalRecordsCount = useContextSelector(ChatRecordContext, (v) => v.totalRecordsCount);
   const isChatRecordsLoaded = useContextSelector(ChatRecordContext, (v) => v.isChatRecordsLoaded);
 
-  // Fetch shortLink data when linkId is present
+  // Fetch shortLink data when linkId is present and merge with customVariables
   useEffect(() => {
-    const fetchInitData = async () => {
+    const fetchAndMergeData = async () => {
       if (linkId) {
         try {
           const result = await fetchShortLinkData(linkId);
-          if (result.initData && !result.error) {
-            setShortLinkInitData(result.initData);
+          if (result.data && !result.error) {
+            // Merge shortLink data with customVariables
+            setMergedVariables((prev) => ({
+              ...prev,
+              ...result.data
+            }));
           } else if (result.error) {
             console.error('ShortLink error:', result.error);
+            // If shortLink fails, just use customVariables
+            setMergedVariables(customVariables);
           }
         } catch (error) {
           console.error('Failed to fetch shortLink data:', error);
+          // If shortLink fails, just use customVariables
+          setMergedVariables(customVariables);
         }
+      } else {
+        // No linkId, just use customVariables
+        setMergedVariables(customVariables);
       }
     };
 
-    fetchInitData();
-  }, [linkId]);
+    fetchAndMergeData();
+  }, [linkId, customVariables]);
 
   const initSign = useRef(false);
   const { data, loading } = useRequest2(
@@ -198,8 +214,7 @@ const OutLink = (props: Props) => {
           messages: histories,
           variables: {
             ...variables,
-            ...customVariables,
-            ...shortLinkInitData
+            ...mergedVariables
           },
           responseChatItemId,
           chatId: completionChatId,
@@ -240,8 +255,7 @@ const OutLink = (props: Props) => {
     },
     [
       chatId,
-      customVariables,
-      shortLinkInitData,
+      mergedVariables,
       outLinkAuthData,
       isResponseDetail,
       onUpdateHistoryTitle,

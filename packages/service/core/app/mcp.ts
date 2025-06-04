@@ -8,9 +8,13 @@ import { retryFn } from '@fastgpt/global/common/system/utils';
 export class MCPClient {
   private client: Client;
   private url: string;
+  private accessToken?: string;
+  private tenantId?: string;
 
-  constructor(config: { url: string }) {
+  constructor(config: { url: string; accessToken?: string; tenantId?: string }) {
     this.url = config.url;
+    this.accessToken = config.accessToken;
+    this.tenantId = config.tenantId;
     this.client = new Client({
       name: 'FastGPT-MCP-client',
       version: '1.0.0'
@@ -18,12 +22,48 @@ export class MCPClient {
   }
 
   private async getConnection(): Promise<Client> {
+    // Prepare request options with headers if accessToken or tenantId are provided
+    const requestInit: RequestInit = {};
+    const headers: Record<string, string> = {};
+
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
+      addLog.debug('[MCP Client] Using accessToken for authentication');
+    }
+
+    if (this.tenantId) {
+      headers['X-Coral-Tenant'] = this.tenantId;
+      addLog.debug('[MCP Client] Using tenantId for tenant identification');
+    }
+
+    if (Object.keys(headers).length > 0) {
+      requestInit.headers = headers;
+    }
+
     try {
-      const transport = new StreamableHTTPClientTransport(new URL(this.url));
+      const transport = new StreamableHTTPClientTransport(new URL(this.url), {
+        requestInit
+      });
       await this.client.connect(transport);
+      addLog.debug('[MCP Client] Connected using StreamableHTTPClientTransport');
       return this.client;
     } catch (error) {
-      await this.client.connect(new SSEClientTransport(new URL(this.url)));
+      addLog.debug('[MCP Client] StreamableHTTPClientTransport failed, trying SSEClientTransport');
+
+      // For SSE transport, we need to set headers in both eventSourceInit and requestInit
+      const sseOptions: any = {
+        requestInit
+      };
+
+      // Set headers for the initial SSE connection
+      if (Object.keys(headers).length > 0) {
+        sseOptions.eventSourceInit = {
+          headers
+        };
+      }
+
+      await this.client.connect(new SSEClientTransport(new URL(this.url), sseOptions));
+      addLog.debug('[MCP Client] Connected using SSEClientTransport');
       return this.client;
     }
   }

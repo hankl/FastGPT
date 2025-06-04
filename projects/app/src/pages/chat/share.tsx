@@ -42,6 +42,20 @@ import { useToast } from '@fastgpt/web/hooks/useToast';
 
 const CustomPluginRunBox = dynamic(() => import('@/pageComponents/chat/CustomPluginRunBox'));
 
+// API function to fetch shortLink data
+const fetchShortLinkData = async (
+  linkId: string
+): Promise<{ initData?: Record<string, any>; error?: string }> => {
+  try {
+    const response = await fetch(`/api/common/shortLink/${linkId}`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching shortLink data:', error);
+    return { error: 'Failed to fetch shortLink data' };
+  }
+};
+
 type Props = {
   appId: string;
   appName: string;
@@ -65,14 +79,19 @@ const OutLink = (props: Props) => {
     showHead = '1',
     authToken,
     customUid,
+    linkId,
     ...customVariables
   } = router.query as {
     shareId: string;
     showHistory: '0' | '1';
     showHead: '0' | '1';
     authToken: string;
+    linkId?: string;
     [key: string]: string;
   };
+
+  // State to store initData from shortLink
+  const [shortLinkInitData, setShortLinkInitData] = useState<Record<string, any>>({});
   const { isPc } = useSystem();
   const { outLinkAuthData, appId, chatId } = useChatStore();
 
@@ -92,6 +111,26 @@ const OutLink = (props: Props) => {
   const chatRecords = useContextSelector(ChatRecordContext, (v) => v.chatRecords);
   const totalRecordsCount = useContextSelector(ChatRecordContext, (v) => v.totalRecordsCount);
   const isChatRecordsLoaded = useContextSelector(ChatRecordContext, (v) => v.isChatRecordsLoaded);
+
+  // Fetch shortLink data when linkId is present
+  useEffect(() => {
+    const fetchInitData = async () => {
+      if (linkId) {
+        try {
+          const result = await fetchShortLinkData(linkId);
+          if (result.initData && !result.error) {
+            setShortLinkInitData(result.initData);
+          } else if (result.error) {
+            console.error('ShortLink error:', result.error);
+          }
+        } catch (error) {
+          console.error('Failed to fetch shortLink data:', error);
+        }
+      }
+    };
+
+    fetchInitData();
+  }, [linkId]);
 
   const initSign = useRef(false);
   const { data, loading } = useRequest2(
@@ -159,7 +198,8 @@ const OutLink = (props: Props) => {
           messages: histories,
           variables: {
             ...variables,
-            ...customVariables
+            ...customVariables,
+            ...shortLinkInitData
           },
           responseChatItemId,
           chatId: completionChatId,
@@ -201,6 +241,7 @@ const OutLink = (props: Props) => {
     [
       chatId,
       customVariables,
+      shortLinkInitData,
       outLinkAuthData,
       isResponseDetail,
       onUpdateHistoryTitle,

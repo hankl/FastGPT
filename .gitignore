@@ -45,3 +45,6 @@ files/helm/fastgpt/charts/*.tgz
 
 tmp/
 coverage
+
+# node compile cache
+node-compile-cache/

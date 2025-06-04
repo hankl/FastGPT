@@ -6,6 +6,7 @@ import { DispatchNodeResponseKeyEnum } from '@fastgpt/global/core/workflow/runti
 import { NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
 import { MCPClient } from '../../../app/mcp';
 import { getErrText } from '@fastgpt/global/common/error/utils';
+import { addLog } from '../../../../common/system/log';
 
 type RunToolProps = ModuleDispatchProps<{
   toolData: {
@@ -21,13 +22,30 @@ type RunToolResponse = DispatchNodeResultType<{
 export const dispatchRunTool = async (props: RunToolProps): Promise<RunToolResponse> => {
   const {
     params,
-    node: { avatar }
+    node: { avatar },
+    variables
   } = props;
 
   const { toolData, ...restParams } = params;
   const { name: toolName, url } = toolData;
 
-  const mcpClient = new MCPClient({ url });
+  // Extract accessToken and tenantId from global variables if available
+  const accessToken = variables?.accessToken;
+  const tenantId = variables?.tenantId;
+
+  if (accessToken) {
+    addLog.debug(`[MCP Tool] Using accessToken for tool ${toolName}`);
+  } else {
+    addLog.debug(`[MCP Tool] No accessToken found in global variables for tool ${toolName}`);
+  }
+
+  if (tenantId) {
+    addLog.debug(`[MCP Tool] Using tenantId for tool ${toolName}`);
+  } else {
+    addLog.debug(`[MCP Tool] No tenantId found in global variables for tool ${toolName}`);
+  }
+
+  const mcpClient = new MCPClient({ url, accessToken, tenantId });
 
   try {
     const result = await mcpClient.toolCall(toolName, restParams);
